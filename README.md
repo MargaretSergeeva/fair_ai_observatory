@@ -1,5 +1,7 @@
 # Fair AI Observatory
 
+**Demo**: https://fair-ai-observatory.netlify.app
+
 **Interactive concept prototype for an EU AI Act-oriented fairness and robustness workflow.**
 
 The reference use case is consumer credit scoring. The project demonstrates how dataset configuration, deterministic evaluation, human review, audit history, and compliance-document samples could fit into one product experience.
