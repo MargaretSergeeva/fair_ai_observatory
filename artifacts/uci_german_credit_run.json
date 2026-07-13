@@ -1,0 +1,153 @@
+{
+  "artifact_version": 1,
+  "provenance": {
+    "dataset": "Statlog (German Credit Data)",
+    "source": "https://archive.ics.uci.edu/dataset/144/statloggermancreditdata",
+    "doi": "10.24432/C5NC77",
+    "license": "CC BY 4.0",
+    "dataset_sha256": "b21f3d81db8071257d5ff1deaeba1fd4303b62712e6fcc9715c7a86202cb5871",
+    "execution": "deterministic local reference run"
+  },
+  "runtime": {
+    "python": "3.13.7",
+    "numpy": "2.5.1",
+    "pandas": "2.3.3",
+    "scikit_learn": "1.9.0",
+    "xgboost": "3.3.0"
+  },
+  "methodology": {
+    "train_test_split": "70/30 stratified, random_state=42",
+    "target": "credit_risk == 1 interpreted as good credit",
+    "gender_mapping": {
+      "female": [
+        "A92",
+        "A95"
+      ],
+      "male": [
+        "A91",
+        "A93",
+        "A94"
+      ]
+    },
+    "model": {
+      "type": "XGBClassifier",
+      "n_estimators": 100,
+      "max_depth": 4,
+      "learning_rate": 0.05,
+      "random_state": 42
+    },
+    "limitations": [
+      "Exploratory reference baseline; no hyperparameter tuning.",
+      "The official asymmetric cost matrix is not applied.",
+      "No Fairlearn mitigation is run because both diagnostic gender thresholds pass."
+    ]
+  },
+  "dataset": {
+    "rows": 1000,
+    "features": 20,
+    "target_good": 700,
+    "target_bad": 300,
+    "gender_counts": {
+      "male": 690,
+      "female": 310
+    }
+  },
+  "baseline": {
+    "test_rows": 300,
+    "accuracy": 0.7433,
+    "probability_min": 0.1634,
+    "probability_max": 0.9858,
+    "group_rates": {
+      "male": {
+        "n": 204,
+        "actual_good_rate": 0.7206,
+        "predicted_approval_rate": 0.8333
+      },
+      "female": {
+        "n": 96,
+        "actual_good_rate": 0.6562,
+        "predicted_approval_rate": 0.7604
+      }
+    },
+    "disparate_impact": 0.9125,
+    "statistical_parity_gap": 0.0729,
+    "diagnostic_thresholds_passed": {
+      "disparate_impact_gte_0_80": true,
+      "statistical_parity_gap_lte_0_10": true
+    },
+    "mitigation": "not triggered"
+  },
+  "intersectional_actual_labels": {
+    "male_18-25": {
+      "n": 85,
+      "actual_good_rate": 0.6118
+    },
+    "male_26+": {
+      "n": 605,
+      "actual_good_rate": 0.7388
+    },
+    "female_18-25": {
+      "n": 105,
+      "actual_good_rate": 0.5524
+    },
+    "female_26+": {
+      "n": 205,
+      "actual_good_rate": 0.6976
+    }
+  },
+  "robustness": {
+    "distribution_shift": {
+      "test": "distribution_shift",
+      "shift_spec": {
+        "credit_amount": 1.15
+      },
+      "baseline_accuracy": 0.7433,
+      "shifted_accuracy": 0.73,
+      "degradation": 0.0133,
+      "tolerance": 0.05,
+      "passed": true
+    },
+    "decision_boundary_sensitivity": {
+      "test": "decision_boundary_sensitivity",
+      "n_borderline": 25,
+      "perturbation_pct": 0.05,
+      "flip_rate": 0.32,
+      "flip_threshold": 0.1,
+      "passed": false
+    },
+    "malformed_input_handling": [
+      {
+        "case": "valid row",
+        "expected_reject": false,
+        "actually_rejected": false,
+        "passed": true
+      },
+      {
+        "case": "negative credit_amount",
+        "expected_reject": true,
+        "actually_rejected": true,
+        "passed": true
+      },
+      {
+        "case": "missing age",
+        "expected_reject": true,
+        "actually_rejected": true,
+        "passed": true
+      },
+      {
+        "case": "age out of range",
+        "expected_reject": true,
+        "actually_rejected": true,
+        "passed": true
+      }
+    ],
+    "out_of_distribution": {
+      "test": "out_of_distribution",
+      "n_queried": 300,
+      "n_flagged": 17,
+      "flagged_rate": 0.0567,
+      "z_threshold": 3.0,
+      "note": "informational — flags signal lower confidence, do not block prediction"
+    }
+  }
+}

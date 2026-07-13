@@ -1,0 +1,38 @@
+# Fair AI Observatory — Documentation
+
+This directory is the single entry point for human-readable project documentation.
+
+## Start here
+
+| Question | Document |
+|---|---|
+| What is this project? | [Concept overview](concept/overview.md) |
+| What is implemented and what is target architecture? | [Architecture and evidence boundaries](concept/architecture.md) |
+| How should the prototype be demonstrated? | [Demo guide](concept/demo-guide.md) |
+| How is the real UCI run reproduced? | [UCI German Credit reference run](reference-run/uci-german-credit.md) |
+
+## Compliance-document samples
+
+- [Annex IV Technical Documentation](compliance-samples/annex-iv.md)
+- [Instructions for Use](compliance-samples/instructions-for-use.md)
+
+These are sample artifacts for the synthetic concept scenario. They are not regulatory filings, legal advice, conformity evidence, or output from an implemented end-to-end compliance pipeline.
+
+## Project-management material
+
+- [Project charter](project-management/project-charter.md)
+
+## Supporting portfolio material
+
+- [Social-media brief](concept/social-media-brief.md) — background and content ideas; validate implementation claims against the current [architecture boundaries](concept/architecture.md) before reuse.
+
+## Files outside this directory
+
+| Path | Purpose |
+|---|---|
+| `README.md` | Short repository landing page and quick start |
+| `CONTRIBUTING.md` | Contribution rules |
+| `decisions.log` | Sample governance/audit-trail artifact |
+| `module_status.yaml` | Sample module/project-state artifact |
+| `artifacts/uci_german_credit_run.json` | Machine-readable real-data reference result |
+| `pm-knowledge/` | Internal placeholder for future THRIVE PM source material; not public product documentation |

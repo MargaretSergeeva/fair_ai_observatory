@@ -1,0 +1,113 @@
+# module_status.yaml — Fair AI Observatory
+# Updated by: pipeline runs, developer_agent (flags PRs), pm_assistant (weekly digest)
+# States: not_started | in_progress | blocked | done
+# Synced to Jira board via n8n workflow
+
+pipeline:
+  ingestion:
+    status: done
+    last_updated: 2026-06-21
+    notes: Compound field decomposition (personal_status_and_sex → gender + marital_status) implemented
+
+  xgboost_baseline:
+    status: done
+    last_updated: 2026-06-21
+    notes: Fairness-through-unawareness baseline; 78% accuracy pre-mitigation
+
+  disparate_impact:
+    status: done
+    last_updated: 2026-06-21
+    notes: Pre-mitigation 0.70 (FAIL); post-mitigation 0.97 (PASS)
+
+  counterfactual_fairness:
+    status: done
+    last_updated: 2026-06-21
+    notes: Equalized odds difference; statistical parity difference 0.24 → 0.02
+
+  intersectional_bias:
+    status: done
+    last_updated: 2026-06-21
+    notes: Female · 18–25 cell excluded (n=24 < 30 minimum); documented
+
+  fairlearn_mitigation:
+    status: done
+    last_updated: 2026-06-21
+    notes: ThresholdOptimizer applied; accuracy cost 78% → 75% disclosed
+
+  robustness_battery:
+    status: in_progress
+    last_updated: 2026-06-21
+    notes: Distribution shift PASS, input validation PASS, OOD flagging INFO, boundary sensitivity FAIL — open finding
+
+setup_agent:
+  status: done
+  last_updated: 2026-06-21
+  notes: Conversational config flow — schema → risk tier → metrics → config → human review
+
+documentation:
+  annex_iv:
+    status: done
+    last_updated: 2026-06-21
+    notes: Markdown sample, Articles 9/10/12/14/15, scope table at the start
+
+  instructions_for_use:
+    status: done
+    last_updated: 2026-06-21
+    notes: Article 13, deployer-facing, plain language
+
+  decisions_log:
+    status: in_progress
+    last_updated: 2026-06-21
+    notes: 8 entries from Run #1; automated retention policy not yet set
+
+demo:
+  act1_product:
+    status: done
+    last_updated: 2026-06-21
+    notes: Setup agent → pipeline → dashboard (data quality + fairness + performance + robustness)
+
+  act2_process:
+    status: done
+    last_updated: 2026-06-21
+    notes: Milestones · agent team · decision log · stakeholder panel (live open finding)
+
+  schema_diagram:
+    status: done
+    last_updated: 2026-06-21
+    notes: Full pipeline architecture diagram
+
+  uci_reference_run:
+    status: done
+    last_updated: 2026-07-13
+    notes: Reproducible official UCI baseline; repository JSON artifact shown separately from the synthetic scenario
+
+agent_team:
+  observatory_developer:
+    status: done
+    last_updated: 2026-06-21
+
+  observatory_pm:
+    status: done
+    last_updated: 2026-06-21
+    notes: Jira sync designed; n8n workflow to be wired
+
+  observatory_stakeholders:
+    status: done
+    last_updated: 2026-06-21
+
+roadmap_v1_1:
+  hmda_support:
+    status: not_started
+
+  boundary_sensitivity_fix:
+    status: blocked
+    notes: Open Article 15 finding; model review required before fix
+
+  art9_continuous_monitoring:
+    status: not_started
+
+  art14_override_infrastructure:
+    status: not_started
+
+  art12_log_retention:
+    status: not_started
