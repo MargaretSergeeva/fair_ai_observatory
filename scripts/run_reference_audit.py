@@ -1,4 +1,4 @@
-"""Run a deterministic baseline audit on UCI German Credit data."""
+"""Run all six UCI German Credit pipeline stages and write one artifact."""
 
 from __future__ import annotations
 
@@ -8,51 +8,28 @@ import json
 import platform
 from pathlib import Path
 
+import fairlearn
 import numpy as np
 import pandas as pd
 import sklearn
 import xgboost
-from sklearn.compose import ColumnTransformer
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
-from xgboost import XGBClassifier
 
+from observatory.bias.counterfactual_fairness import run_equalized_odds_battery
+from observatory.bias.disparate_impact import run_disparate_impact_battery
+from observatory.bias.intersectional import run_intersectional_battery
+from observatory.bias.mitigation import run_mitigation_pipeline
+from observatory.bias.disparate_impact import band_age
+from observatory.ingestion.ingestion import AGE_COL, FOREIGN_COL, GENDER_COL
+from observatory.model.model import train_and_evaluate
 from observatory.robustness.robustness import run_robustness_battery
 
-
-DATASET_COLUMNS = [
-    "checking_status",
-    "duration_months",
-    "credit_history",
-    "purpose",
-    "credit_amount",
-    "savings",
-    "employment",
-    "installment_rate",
-    "personal_status_sex",
-    "other_debtors",
-    "residence_since",
-    "property",
-    "age",
-    "other_installment_plans",
-    "housing",
-    "existing_credits",
-    "job",
-    "dependents",
-    "telephone",
-    "foreign_worker",
-    "credit_risk",
-]
-FEMALE_CODES = {"A92", "A95"}
 DATASET_SOURCE = "https://archive.ics.uci.edu/dataset/144/statloggermancreditdata"
 DATASET_DOI = "10.24432/C5NC77"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the reproducible UCI German Credit reference audit."
+        description="Run the reproducible UCI German Credit fairness pipeline."
     )
     parser.add_argument(
         "--dataset",
@@ -67,169 +44,150 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_dataset(*, path: Path) -> pd.DataFrame:
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"dataset not found: {path}; run scripts/download_uci_german_credit.py"
-        )
-
-    dataframe = pd.read_csv(path, sep=r"\s+", names=DATASET_COLUMNS)
-    if dataframe.shape != (1000, 21):
-        raise ValueError(f"expected dataset shape (1000, 21), received {dataframe.shape}")
-    if dataframe.isna().any().any():
-        raise ValueError("dataset contains missing values")
-    if set(dataframe["credit_risk"].unique()) != {1, 2}:
-        raise ValueError("credit_risk must contain exactly the official classes 1 and 2")
-    return dataframe
-
-
-def build_schema(*, features: pd.DataFrame) -> dict[str, dict]:
-    schema: dict[str, dict] = {}
-    numeric_columns = features.select_dtypes(include=[np.number]).columns.tolist()
-    for column in numeric_columns:
-        schema[column] = {
+def build_numeric_schema(*, dataframe: pd.DataFrame) -> dict[str, dict]:
+    return {
+        column: {
             "dtype": "numeric",
-            "range": (float(features[column].min()), float(features[column].max())),
+            "range": (float(dataframe[column].min()), float(dataframe[column].max())),
         }
-    for column in features.columns:
-        if column not in numeric_columns:
-            schema[column] = {
-                "dtype": "categorical",
-                "categories": sorted(features[column].unique().tolist()),
-            }
-    return schema
+        for column in dataframe.columns
+    }
 
 
-def build_model(*, features: pd.DataFrame) -> Pipeline:
-    numeric_columns = features.select_dtypes(include=[np.number]).columns.tolist()
-    categorical_columns = [
-        column for column in features.columns if column not in numeric_columns
-    ]
-    preprocessor = ColumnTransformer(
-        transformers=[
-            (
-                "categorical",
-                OneHotEncoder(handle_unknown="ignore"),
-                categorical_columns,
-            ),
-            ("numeric", "passthrough", numeric_columns),
-        ]
-    )
-    classifier = XGBClassifier(
-        n_estimators=100,
-        max_depth=4,
-        learning_rate=0.05,
-        eval_metric="logloss",
-        random_state=42,
-    )
-    return Pipeline(
-        steps=[
-            ("preprocessor", preprocessor),
-            ("classifier", classifier),
-        ]
-    )
-
-
-def group_rates(
-    *, predictions: np.ndarray, labels: pd.Series, gender: pd.Series
-) -> dict[str, dict[str, float | int]]:
-    rates: dict[str, dict[str, float | int]] = {}
-    for group in ("male", "female"):
-        mask = gender == group
-        rates[group] = {
+def build_group_rates(
+    *,
+    dataframe_test: pd.DataFrame,
+    y_test: pd.Series,
+    disparate_impact: dict,
+) -> dict[str, dict]:
+    output = {}
+    gender_result = disparate_impact["results"]["gender"]
+    for row in gender_result["group_rates"]:
+        group = row["group"]
+        mask = dataframe_test[GENDER_COL] == group
+        output[group] = {
             "n": int(mask.sum()),
-            "actual_good_rate": round(float(labels[mask].mean()), 4),
-            "predicted_approval_rate": round(float(predictions[mask].mean()), 4),
+            "actual_good_rate": round(float(y_test[mask].mean()), 4),
+            "predicted_approval_rate": row["approval_rate"],
         }
-    return rates
-
-
-def intersectional_rates(
-    *, dataframe: pd.DataFrame, labels: pd.Series, gender: pd.Series
-) -> dict[str, dict[str, float | int]]:
-    result: dict[str, dict[str, float | int]] = {}
-    for group in ("male", "female"):
-        for age_group, age_mask in (
-            ("18-25", dataframe["age"].between(18, 25)),
-            ("26+", dataframe["age"] >= 26),
-        ):
-            mask = (gender == group) & age_mask
-            result[f"{group}_{age_group}"] = {
-                "n": int(mask.sum()),
-                "actual_good_rate": round(float(labels[mask].mean()), 4),
-            }
-    return result
+    return output
 
 
 def run_audit(*, dataset_path: Path) -> dict:
-    dataframe = load_dataset(path=dataset_path)
-    features = dataframe.drop(columns=["credit_risk"])
-    labels = (dataframe["credit_risk"] == 1).astype(int)
-    gender = pd.Series(
-        np.where(
-            dataframe["personal_status_sex"].isin(FEMALE_CODES),
-            "female",
-            "male",
-        ),
-        index=dataframe.index,
-    )
+    baseline = train_and_evaluate(dataset_path=dataset_path)
+    data = baseline["ingestion_data"]
+    predictions = baseline["preds_test"]
+    y_true = data["y_test"].to_numpy()
 
-    (
-        features_train,
-        features_test,
-        labels_train,
-        labels_test,
-        _gender_train,
-        gender_test,
-    ) = train_test_split(
-        features,
-        labels,
-        gender,
-        test_size=0.30,
-        random_state=42,
-        stratify=labels,
-    )
-
-    model = build_model(features=features)
-    model.fit(X=features_train, y=labels_train)
-    predictions = model.predict(features_test)
-    probabilities = model.predict_proba(features_test)[:, 1]
-    rates = group_rates(
+    disparate_impact = run_disparate_impact_battery(
         predictions=predictions,
-        labels=labels_test,
-        gender=gender_test,
+        dataframe_test=data["df_test"],
     )
-    predicted_rates = [
-        float(values["predicted_approval_rate"]) for values in rates.values()
+    equalized_odds = run_equalized_odds_battery(
+        y_true=y_true,
+        y_pred=predictions,
+        dataframe_test=data["df_test"],
+    )
+    intersectional = run_intersectional_battery(
+        predictions=predictions,
+        dataframe_test=data["df_test"],
+    )
+    failed_disparate_impact = [
+        result
+        for result in disparate_impact["results"].values()
+        if not result["passed"]
     ]
+    if failed_disparate_impact:
+        mitigation_target = max(
+            failed_disparate_impact,
+            key=lambda result: result["spd"],
+        )["attribute"]
+        sensitive_columns = {
+            "gender": (
+                data["df_train"][GENDER_COL],
+                data["df_test"][GENDER_COL],
+            ),
+            "age_group": (
+                band_age(series=data["df_train"][AGE_COL]),
+                band_age(series=data["df_test"][AGE_COL]),
+            ),
+            "foreign_worker": (
+                data["df_train"][FOREIGN_COL],
+                data["df_test"][FOREIGN_COL],
+            ),
+        }
+        sensitive_train, sensitive_test = sensitive_columns[mitigation_target]
+        mitigation = run_mitigation_pipeline(
+            model=baseline["model"],
+            X_train=data["X_train"],
+            y_train=data["y_train"],
+            X_test=data["X_test"],
+            y_test=data["y_test"],
+            sensitive_train=sensitive_train,
+            sensitive_test=sensitive_test,
+            sensitive_attribute=mitigation_target,
+            baseline_predictions=predictions,
+        )
+        mitigation["status"] = "triggered"
+        mitigation["trigger"] = (
+            f"largest failed disparate-impact check: {mitigation_target}"
+        )
+    else:
+        mitigation = {
+            "status": "not_triggered",
+            "reason": "all disparate-impact checks passed",
+        }
 
-    schema = build_schema(features=features)
-    valid_row = features_test.iloc[0].to_dict()
+    schema = build_numeric_schema(dataframe=data["X_train"])
+    valid_row = data["X_test"].iloc[0].to_dict()
+    malformed_cases = [
+        ("valid row", valid_row, False),
+        (
+            "negative credit_amount",
+            {**valid_row, "credit_amount": -1.0},
+            True,
+        ),
+        (
+            "missing duration_months",
+            {**valid_row, "duration_months": None},
+            True,
+        ),
+        (
+            "credit_amount outside training range",
+            {
+                **valid_row,
+                "credit_amount": schema["credit_amount"]["range"][1] + 1.0,
+            },
+            True,
+        ),
+    ]
     robustness = run_robustness_battery(
-        model=model,
-        X_train=features_train,
-        X_test=features_test,
-        y_test=labels_test,
+        model=baseline["model"],
+        X_train=data["X_train"],
+        X_test=data["X_test"],
+        y_test=data["y_test"],
         shift_spec={"credit_amount": 1.15},
         schema=schema,
-        feature_order=features.columns.tolist(),
-        malformed_cases=[
-            ("valid row", valid_row, False),
-            ("negative credit_amount", dict(valid_row, credit_amount=-1), True),
-            ("missing age", dict(valid_row, age=None), True),
-            ("age out of range", dict(valid_row, age=140), True),
-        ],
+        feature_order=data["feature_columns"],
+        malformed_cases=malformed_cases,
+        numeric_columns=["duration_months", "credit_amount", "installment_rate"],
     )
 
+    group_rates = build_group_rates(
+        dataframe_test=data["df_test"],
+        y_test=data["y_test"],
+        disparate_impact=disparate_impact,
+    )
+    gender_di = disparate_impact["results"]["gender"]
     return {
-        "artifact_version": 1,
+        "artifact_version": 2,
         "provenance": {
             "dataset": "Statlog (German Credit Data)",
             "source": DATASET_SOURCE,
             "doi": DATASET_DOI,
             "license": "CC BY 4.0",
             "dataset_sha256": hashlib.sha256(dataset_path.read_bytes()).hexdigest(),
-            "execution": "deterministic local reference run",
+            "execution": "deterministic local six-stage fairness pipeline",
         },
         "runtime": {
             "python": platform.python_version(),
@@ -237,59 +195,39 @@ def run_audit(*, dataset_path: Path) -> dict:
             "pandas": pd.__version__,
             "scikit_learn": sklearn.__version__,
             "xgboost": xgboost.__version__,
+            "fairlearn": fairlearn.__version__,
         },
         "methodology": {
             "train_test_split": "70/30 stratified, random_state=42",
             "target": "credit_risk == 1 interpreted as good credit",
-            "gender_mapping": {
-                "female": sorted(FEMALE_CODES),
-                "male": ["A91", "A93", "A94"],
-            },
-            "model": {
-                "type": "XGBClassifier",
-                "n_estimators": 100,
-                "max_depth": 4,
-                "learning_rate": 0.05,
-                "random_state": 42,
-            },
+            "model": baseline["model_meta"],
             "limitations": [
                 "Exploratory reference baseline; no hyperparameter tuning.",
-                "The official asymmetric cost matrix is not applied.",
-                "No Fairlearn mitigation is run because both diagnostic gender thresholds pass.",
+                "Diagnostic thresholds are methodology choices, not legal bright lines.",
+                "The foreign_worker A202 test group has n=13; its disparity and mitigation results are unstable and require more data.",
+                "The result is not a conformity assessment or legal opinion.",
             ],
         },
-        "dataset": {
-            "rows": int(len(dataframe)),
-            "features": int(features.shape[1]),
-            "target_good": int(labels.sum()),
-            "target_bad": int((1 - labels).sum()),
-            "gender_counts": {
-                key: int(value) for key, value in gender.value_counts().items()
-            },
-        },
+        "dataset": data["meta"],
         "baseline": {
-            "test_rows": int(len(features_test)),
-            "accuracy": round(float(accuracy_score(labels_test, predictions)), 4),
-            "probability_min": round(float(probabilities.min()), 4),
-            "probability_max": round(float(probabilities.max()), 4),
-            "group_rates": rates,
-            "disparate_impact": round(min(predicted_rates) / max(predicted_rates), 4),
-            "statistical_parity_gap": round(abs(predicted_rates[0] - predicted_rates[1]), 4),
+            **baseline["performance"],
+            "group_rates": group_rates,
+            "disparate_impact": gender_di["dir"],
+            "statistical_parity_gap": gender_di["spd"],
             "diagnostic_thresholds_passed": {
-                "disparate_impact_gte_0_80": min(predicted_rates) / max(predicted_rates)
-                >= 0.80,
-                "statistical_parity_gap_lte_0_10": abs(
-                    predicted_rates[0] - predicted_rates[1]
-                )
-                <= 0.10,
+                "disparate_impact_gte_0_80": gender_di["dir"] >= 0.80,
+                "statistical_parity_gap_lte_0_10": gender_di["spd"] <= 0.10,
             },
-            "mitigation": "not triggered",
+            "top_features": baseline["feature_importance"][:10],
         },
-        "intersectional_actual_labels": intersectional_rates(
-            dataframe=dataframe,
-            labels=labels,
-            gender=gender,
-        ),
+        "pipeline": {
+            "ingestion": data["meta"],
+            "xgboost_baseline": baseline["performance"],
+            "disparate_impact": disparate_impact,
+            "equalized_odds": equalized_odds,
+            "intersectional_bias": intersectional,
+            "mitigation": mitigation,
+        },
         "robustness": robustness,
     }
 

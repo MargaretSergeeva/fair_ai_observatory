@@ -1,5 +1,7 @@
 # Technical Documentation
 
+> **Synthetic reading copy.** This Markdown file preserves the scripted Act 1 scenario. The formal sample deliverable regenerated from the real UCI pipeline is [`../Annex_IV_Technical_Documentation.docx`](../Annex_IV_Technical_Documentation.docx).
+
 Annex IV — EU AI Act · Consumer Credit Scoring Model
 
 | SAMPLE DOCUMENTGenerated from a synthetic demonstration dataset (1,000 synthetic records, modeled on the UCI German Credit / Statlog structure) for methodology and portfolio demonstration. Not a regulatory filing for a production system. |
@@ -204,5 +206,4 @@ Current scope: a sign-off field, reviewed against this document. Override or sto
 ## 10. Conclusion
 
 Bias testing identified disparate impact below the diagnostic threshold; mitigation resolved it at a disclosed accuracy cost. Robustness testing separately identified a decision-stability issue at the approval boundary, unresolved as of this run. Both findings, the full data-governance record, and the audit trail above constitute the technical documentation basis for DPO sign-off prior to production use. Open items — continuous risk monitoring (Section 4), automated log retention (Section 7), oversight infrastructure (Section 8), and a resolution for the boundary-sensitivity finding (Section 6.2) — are tracked as roadmap items, not silently omitted.
-
 
