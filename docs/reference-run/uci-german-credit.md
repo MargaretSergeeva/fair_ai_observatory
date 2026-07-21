@@ -51,32 +51,37 @@ artifacts/uci_german_credit_run.json
 - gender mapping follows the official `personal_status_sex` definitions;
 - no hyperparameter tuning;
 - official asymmetric cost matrix not applied;
-- no mitigation because both diagnostic gender thresholds pass.
+- mitigation targets the largest failed disparate-impact check and reports its cost and residual failure.
 
 ## Captured results
 
 | Metric | Result |
 |---|---:|
-| Test accuracy | 74.33% |
-| Male predicted approval rate | 83.33% |
-| Female predicted approval rate | 76.04% |
-| Disparate impact | 0.9125 — PASS |
-| Statistical parity gap | 0.0729 — PASS |
-| Distribution-shift degradation | 1.33% — PASS |
-| Boundary-sensitivity flip rate | 32.0% — FAIL |
+| Test accuracy | 73.67% |
+| Male predicted approval rate | 80.39% |
+| Female predicted approval rate | 80.21% |
+| Gender disparate impact | 0.9977 — PASS |
+| Foreign-worker proxy disparate impact | 0.7944 — FAIL |
+| Post-mitigation foreign-worker DIR | 0.8342 — PASS |
+| Post-mitigation foreign-worker parity gap | 0.1530 — FAIL |
+| Accuracy after mitigation | 72.33% |
+| Distribution-shift degradation | 0.67% — PASS |
+| Boundary-sensitivity flip rate | 22.22% — FAIL |
 | Malformed input cases | 4/4 — PASS |
-| OOD flagged rate | 5.67% — INFO |
+| OOD flagged rate | 3.67% — INFO |
+
+The failed `foreign_worker` comparison is based on only 13 `A202` test rows (24 training rows). The metric and mitigation result are therefore unstable and must be treated as an exploratory signal, not a defensible group-level conclusion.
 
 ## Artifact reproducibility
 
 With the runtime versions recorded inside the artifact, repeated local execution produced the same JSON SHA-256:
 
 ```text
-8dde1d4b7a3445fdfc4332b487cde6801a57f60ee7e0f6575c6098331981898f
+fdbe43544c1a4d46e62a48775a47c18634e17abdb359ce3ebd952d82b0b7371e
 ```
 
 Library upgrades can change model output. Regenerate intentionally and review the full metric diff rather than accepting drift silently.
 
 ## Interpretation boundary
 
-This is an exploratory baseline, not a production model evaluation, legal assessment, or conformity claim. Passing two diagnostic gender thresholds does not prove general fairness, and the failed boundary-sensitivity result remains an open robustness concern.
+This is an exploratory baseline, not a production model evaluation, legal assessment, or conformity claim. Passing the gender checks does not prove general fairness. The residual foreign-worker proxy disparity, equalized-odds findings, incomplete mitigation and failed boundary-sensitivity check remain open concerns.

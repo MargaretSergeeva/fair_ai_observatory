@@ -6,38 +6,38 @@
 pipeline:
   ingestion:
     status: done
-    last_updated: 2026-06-21
-    notes: Compound field decomposition (personal_status_and_sex → gender + marital_status) implemented
+    last_updated: 2026-07-14
+    notes: Official UCI raw contract validated; compound field decomposed; protected fields excluded before one-hot encoding
 
   xgboost_baseline:
     status: done
-    last_updated: 2026-06-21
-    notes: Fairness-through-unawareness baseline; 78% accuracy pre-mitigation
+    last_updated: 2026-07-14
+    notes: Fairness-through-unawareness baseline; real UCI test accuracy 73.67%
 
   disparate_impact:
     status: done
-    last_updated: 2026-06-21
-    notes: Pre-mitigation 0.70 (FAIL); post-mitigation 0.97 (PASS)
+    last_updated: 2026-07-14
+    notes: Gender DIR 0.9977 PASS; foreign_worker proxy DIR 0.7944 and SPD 0.2056 FAIL
 
   counterfactual_fairness:
     status: done
-    last_updated: 2026-06-21
-    notes: Equalized odds difference; statistical parity difference 0.24 → 0.02
+    last_updated: 2026-07-14
+    notes: Real UCI equalized odds battery; age_group and foreign_worker proxy checks fail diagnostic threshold
 
   intersectional_bias:
     status: done
-    last_updated: 2026-06-21
-    notes: Female · 18–25 cell excluded (n=24 < 30 minimum); documented
+    last_updated: 2026-07-14
+    notes: Real UCI two- and three-way checks with min-n=30; excluded cells retained with reasons
 
   fairlearn_mitigation:
     status: done
-    last_updated: 2026-06-21
-    notes: ThresholdOptimizer applied; accuracy cost 78% → 75% disclosed
+    last_updated: 2026-07-14
+    notes: ThresholdOptimizer targeted foreign_worker proxy; DIR improved 0.7944 → 0.8342 but SPD 0.1530 remains FAIL; accuracy 73.67% → 72.33%
 
   robustness_battery:
     status: in_progress
-    last_updated: 2026-06-21
-    notes: Distribution shift PASS, input validation PASS, OOD flagging INFO, boundary sensitivity FAIL — open finding
+    last_updated: 2026-07-14
+    notes: Distribution shift PASS, input validation 4/4 PASS, OOD 3.67% INFO, boundary sensitivity 22.22% FAIL
 
 setup_agent:
   status: done
@@ -47,13 +47,13 @@ setup_agent:
 documentation:
   annex_iv:
     status: done
-    last_updated: 2026-06-21
-    notes: Markdown sample, Articles 9/10/12/14/15, scope table at the start
+    last_updated: 2026-07-14
+    notes: DOCX restored and regenerated with real UCI six-stage results; Markdown synthetic reading copy retained separately
 
   instructions_for_use:
     status: done
-    last_updated: 2026-06-21
-    notes: Article 13, deployer-facing, plain language
+    last_updated: 2026-07-14
+    notes: DOCX restored and regenerated with real UCI performance and unresolved mitigation result
 
   decisions_log:
     status: in_progress
@@ -78,8 +78,8 @@ demo:
 
   uci_reference_run:
     status: done
-    last_updated: 2026-07-13
-    notes: Reproducible official UCI baseline; repository JSON artifact shown separately from the synthetic scenario
+    last_updated: 2026-07-14
+    notes: Reproducible official UCI six-stage pipeline artifact shown separately from the synthetic scenario
 
 agent_team:
   observatory_developer:

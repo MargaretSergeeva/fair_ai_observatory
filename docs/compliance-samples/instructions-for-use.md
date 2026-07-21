@@ -1,5 +1,7 @@
 # Instructions for Use
 
+> **Synthetic reading copy.** This Markdown file preserves the scripted Act 1 scenario. The formal sample deliverable regenerated from the real UCI pipeline is [`../Instructions_for_Use.docx`](../Instructions_for_Use.docx).
+
 Article 13 — EU AI Act · Consumer Credit Scoring Model
 
 | SAMPLE DOCUMENTGenerated from a synthetic demonstration dataset for methodology and portfolio demonstration. Not a regulatory filing for a production system. |
@@ -49,4 +51,3 @@ This report reflects a single evaluation run. To keep it valid over time:
 ## 6. Provider Contact
 
 Questions about this system's behavior, or requests to report an issue, should be directed to the system provider's compliance contact (to be completed before deployment).
-

@@ -25,8 +25,7 @@ airflow/logs/
 .env.*
 *.env
 
-# Generated outputs — don't commit generated .docx to the repo
-docs/*.docx
+# Generated previews
 docs/*.pdf
 
 # OS

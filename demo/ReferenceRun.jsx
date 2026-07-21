@@ -93,14 +93,37 @@ function Metric({ label, value, detail, status }) {
   );
 }
 
+function Stage({ number, name, status, detail }) {
+  const passed = status === "PASS";
+  const color = passed ? C.sage : status === "FAIL" ? C.rust : C.brass;
+  return (
+    <div className="rounded p-3" style={{ background: C.panelLight }}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Label>{String(number).padStart(2, "0")} · {name.toUpperCase()}</Label>
+          <div className="mt-2" style={{ fontFamily: SANS, color: C.dim, fontSize: "0.72rem" }}>
+            {detail}
+          </div>
+        </div>
+        <span style={{ fontFamily: MONO, color, fontSize: "0.66rem", fontWeight: 700 }}>
+          {status}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ReferenceRun() {
   useGoogleFonts();
-  const { baseline, dataset, methodology, provenance, robustness, runtime } = report;
+  const { baseline, dataset, methodology, pipeline, provenance, robustness, runtime } = report;
   const male = baseline.group_rates.male;
   const female = baseline.group_rates.female;
   const boundary = robustness.decision_boundary_sensitivity;
   const shift = robustness.distribution_shift;
   const ood = robustness.out_of_distribution;
+  const mitigation = pipeline.mitigation;
+  const genderPassed = baseline.diagnostic_thresholds_passed.disparate_impact_gte_0_80
+    && baseline.diagnostic_thresholds_passed.statistical_parity_gap_lte_0_10;
 
   return (
     <div
@@ -118,7 +141,7 @@ function ReferenceRun() {
               <Label color={C.teal}>REAL DATA · REPRODUCIBLE REFERENCE RUN</Label>
             </div>
             <h1 style={{ fontFamily: MONO, fontSize: "1.35rem", fontWeight: 700 }}>
-              UCI German Credit — Baseline Audit
+              UCI German Credit — Six-Stage Fairness Audit
             </h1>
             <p
               className="mt-2 max-w-2xl"
@@ -141,16 +164,56 @@ function ReferenceRun() {
 
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Metric label="Records" value={dataset.rows.toLocaleString()} detail="Official dataset rows" />
-          <Metric label="Features" value={dataset.features} detail="Original model inputs" />
-          <Metric label="Test accuracy" value={percent(baseline.accuracy)} detail={`${baseline.test_rows} held-out rows`} />
-          <Metric label="Mitigation" value="OFF" detail="Thresholds passed; not triggered" status="pass" />
+          <Metric label="Features" value={dataset.encoded_features} detail="Encoded model inputs" />
+          <Metric label="Test accuracy" value={percent(baseline.accuracy)} detail={`${dataset.test_rows} held-out rows`} />
+          <Metric
+            label="Mitigation"
+            value={mitigation.mitigation_passed ? "PASS" : "INCOMPLETE"}
+            detail={`${mitigation.sensitive_attribute} · ${mitigation.constraint}`}
+            status={mitigation.mitigation_passed ? "pass" : "fail"}
+          />
         </div>
+
+        <Card className="mb-6">
+          <div className="mb-4 flex items-center justify-between">
+            <Label color={C.teal}>EXECUTED PIPELINE · REAL ARTIFACT</Label>
+            <Activity size={17} color={C.teal} />
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <Stage number={1} name="Ingestion" status="PASS" detail={`${dataset.rows} rows validated; compound field decomposed`} />
+            <Stage number={2} name="XGBoost baseline" status="PASS" detail={`${percent(baseline.accuracy)} test accuracy`} />
+            <Stage
+              number={3}
+              name="Disparate impact"
+              status={pipeline.disparate_impact.any_violation ? "FAIL" : "PASS"}
+              detail={`${pipeline.disparate_impact.n_pass} pass · ${pipeline.disparate_impact.n_fail} fail`}
+            />
+            <Stage
+              number={4}
+              name="Equalized odds"
+              status={pipeline.equalized_odds.any_violation ? "FAIL" : "PASS"}
+              detail={`${pipeline.equalized_odds.n_pass} pass · ${pipeline.equalized_odds.n_fail} fail`}
+            />
+            <Stage
+              number={5}
+              name="Intersectional bias"
+              status={pipeline.intersectional_bias.any_violation ? "FAIL" : "PASS"}
+              detail={`${pipeline.intersectional_bias.n_pass} pass · ${pipeline.intersectional_bias.n_insufficient} insufficient`}
+            />
+            <Stage
+              number={6}
+              name="Fairlearn mitigation"
+              status={mitigation.mitigation_passed ? "PASS" : "FAIL"}
+              detail={`${mitigation.sensitive_attribute}: DPR ${mitigation.fairness.before.demographic_parity_ratio.toFixed(4)} → ${mitigation.fairness.after.demographic_parity_ratio.toFixed(4)}; accuracy cost ${percent(mitigation.performance.accuracy_cost)}`}
+            />
+          </div>
+        </Card>
 
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card>
             <div className="mb-4 flex items-center justify-between">
               <Label>GENDER FAIRNESS · PREDICTED APPROVALS</Label>
-              <ShieldCheck size={17} color={C.sage} />
+              <ShieldCheck size={17} color={genderPassed ? C.sage : C.rust} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded p-3" style={{ background: C.panelLight }}>
@@ -173,11 +236,11 @@ function ReferenceRun() {
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: C.hairline }}>
                 <span style={{ fontFamily: SANS, color: C.dim, fontSize: "0.78rem" }}>Disparate impact</span>
-                <span style={{ fontFamily: MONO, color: C.sage, fontWeight: 700 }}>{baseline.disparate_impact.toFixed(4)} · PASS</span>
+                <span style={{ fontFamily: MONO, color: genderPassed ? C.sage : C.rust, fontWeight: 700 }}>{baseline.disparate_impact.toFixed(4)} · {genderPassed ? "PASS" : "FAIL"}</span>
               </div>
               <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: C.hairline }}>
                 <span style={{ fontFamily: SANS, color: C.dim, fontSize: "0.78rem" }}>Statistical parity gap</span>
-                <span style={{ fontFamily: MONO, color: C.sage, fontWeight: 700 }}>{baseline.statistical_parity_gap.toFixed(4)} · PASS</span>
+                <span style={{ fontFamily: MONO, color: genderPassed ? C.sage : C.rust, fontWeight: 700 }}>{baseline.statistical_parity_gap.toFixed(4)} · {genderPassed ? "PASS" : "FAIL"}</span>
               </div>
             </div>
           </Card>

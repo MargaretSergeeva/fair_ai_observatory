@@ -41,7 +41,7 @@ class InputValidationError(Exception):
 # ---------------------------------------------------------------------------
 # 1. Distribution shift
 # ---------------------------------------------------------------------------
-def distribution_shift_test(model, X_test, y_test, shift_spec, tolerance=0.05):
+def distribution_shift_test(*, model, X_test, y_test, shift_spec, tolerance=0.05):
     """Re-evaluates accuracy after applying a plausible real-world drift to
     one or more numeric columns (e.g. inflation on credit_amount).
 
@@ -75,7 +75,7 @@ def distribution_shift_test(model, X_test, y_test, shift_spec, tolerance=0.05):
 # 2. Decision boundary sensitivity
 # ---------------------------------------------------------------------------
 def decision_boundary_sensitivity(
-    model, X_test, proba_band=(0.45, 0.55), perturbation_pct=0.05,
+    *, model, X_test, proba_band=(0.45, 0.55), perturbation_pct=0.05,
     flip_threshold=0.10, numeric_cols=None, random_state=42,
 ):
     """For applicants the model is least confident about, applies a small
@@ -125,7 +125,7 @@ def decision_boundary_sensitivity(
 # ---------------------------------------------------------------------------
 # 3. Malformed input handling
 # ---------------------------------------------------------------------------
-def validate_row(row: dict, schema: dict) -> None:
+def validate_row(*, row: dict, schema: dict) -> None:
     """Validates a single input row against a schema. Raises
     InputValidationError with every problem found, rather than failing on
     the first one — useful for a single clear rejection message.
@@ -152,23 +152,28 @@ def validate_row(row: dict, schema: dict) -> None:
         raise InputValidationError("; ".join(errors))
 
 
-def validate_and_predict(model, row: dict, schema: dict, feature_order: list):
+def validate_and_predict(*, model, row: dict, schema: dict, feature_order: list):
     """Validates, then predicts. This is the function that should sit at
     the actual serving boundary — never call model.predict() on raw,
     unvalidated input."""
-    validate_row(row, schema)
+    validate_row(row=row, schema=schema)
     row_df = pd.DataFrame([row])[feature_order]
     return model.predict(row_df)[0]
 
 
-def malformed_input_handling_test(model, schema, feature_order, test_cases):
+def malformed_input_handling_test(*, model, schema, feature_order, test_cases):
     """test_cases: list of (description, row_dict, should_be_rejected).
     Confirms the system rejects what it should and accepts what it should —
     silent failure on bad input is the actual risk Article 15 names."""
     results = []
     for desc, row, should_reject in test_cases:
         try:
-            validate_and_predict(model, row, schema, feature_order)
+            validate_and_predict(
+                model=model,
+                row=row,
+                schema=schema,
+                feature_order=feature_order,
+            )
             rejected = False
         except InputValidationError:
             rejected = True
@@ -184,7 +189,9 @@ def malformed_input_handling_test(model, schema, feature_order, test_cases):
 # ---------------------------------------------------------------------------
 # 4. Out-of-distribution flagging
 # ---------------------------------------------------------------------------
-def out_of_distribution_flag(X_train, X_query, numeric_cols=None, z_threshold=3.0):
+def out_of_distribution_flag(
+    *, X_train, X_query, numeric_cols=None, z_threshold=3.0
+):
     """Flags query rows whose numeric features fall beyond z_threshold
     standard deviations from the training distribution. Informational only
     — it signals lower confidence, it does not block a prediction. Blocking
@@ -210,22 +217,48 @@ def out_of_distribution_flag(X_train, X_query, numeric_cols=None, z_threshold=3.
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
-def run_robustness_battery(model, X_train, X_test, y_test, shift_spec, schema,
-                            feature_order, malformed_cases):
+def run_robustness_battery(
+    *,
+    model,
+    X_train,
+    X_test,
+    y_test,
+    shift_spec,
+    schema,
+    feature_order,
+    malformed_cases,
+    numeric_columns,
+):
     """Runs all four checks and returns one combined report, in the same
     shape as the bias modules' output so the PM assistant / decisions.log
     integration introduced earlier works unchanged."""
     return {
-        "distribution_shift": distribution_shift_test(model, X_test, y_test, shift_spec),
-        "decision_boundary_sensitivity": decision_boundary_sensitivity(model, X_test),
-        "malformed_input_handling": malformed_input_handling_test(
-            model, schema, feature_order, malformed_cases
+        "distribution_shift": distribution_shift_test(
+            model=model,
+            X_test=X_test,
+            y_test=y_test,
+            shift_spec=shift_spec,
         ),
-        "out_of_distribution": out_of_distribution_flag(X_train, X_test),
+        "decision_boundary_sensitivity": decision_boundary_sensitivity(
+            model=model,
+            X_test=X_test,
+            numeric_cols=numeric_columns,
+        ),
+        "malformed_input_handling": malformed_input_handling_test(
+            model=model,
+            schema=schema,
+            feature_order=feature_order,
+            test_cases=malformed_cases,
+        ),
+        "out_of_distribution": out_of_distribution_flag(
+            X_train=X_train,
+            X_query=X_test,
+            numeric_cols=numeric_columns,
+        ),
     }
 
 
-def to_decision_log_entries(report, source="robustness_module"):
+def to_decision_log_entries(*, report, source="robustness_module"):
     """Converts failed/flagged results into decisions.log-style lines,
     matching the format used by the bias modules and the PM assistant."""
     entries = []
@@ -257,7 +290,7 @@ def to_decision_log_entries(report, source="robustness_module"):
     return entries
 
 
-def print_report(report):
+def print_report(*, report):
     print("ARTICLE 15 — ROBUSTNESS BATTERY")
     print("=" * 60)
 
@@ -286,7 +319,7 @@ def print_report(report):
           f"({ood['flagged_rate']:.1%}) at z>{ood['z_threshold']}")
 
     print("\n" + "=" * 60)
-    log_entries = to_decision_log_entries(report)
+    log_entries = to_decision_log_entries(report=report)
     if log_entries:
         print(f"{len(log_entries)} entries would be written to decisions.log:")
         for e in log_entries:
@@ -355,11 +388,20 @@ if __name__ == "__main__":
     ]
 
     report = run_robustness_battery(
-        model, X_train, X_test, y_test,
+        model=model,
+        X_train=X_train,
+        X_test=X_test,
+        y_test=y_test,
         shift_spec={"credit_amount": 1.15},  # simulate 15% inflation
         schema=schema,
         feature_order=feature_order,
         malformed_cases=malformed_cases,
+        numeric_columns=[
+            "age",
+            "credit_amount",
+            "duration_months",
+            "employment_years",
+        ],
     )
 
-    print_report(report)
+    print_report(report=report)

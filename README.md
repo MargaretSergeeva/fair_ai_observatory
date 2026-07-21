@@ -15,9 +15,9 @@ The reference use case is consumer credit scoring. The project demonstrates how 
 | Act 1 — Product Demo | Setup flow, simulated pipeline, fairness mitigation and dashboard | Scripted synthetic scenario |
 | Act 2 — Process View | Milestones, agent roles, decision log and stakeholder panel | Scripted governance scenario |
 | Pipeline Schema | Intended end-to-end architecture | Target architecture |
-| UCI Reference Run | Baseline and robustness results on public UCI data | Reproducible Python-generated artifact |
+| UCI Reference Run | Six-stage fairness pipeline and robustness results on public UCI data | Reproducible Python-generated artifact |
 
-The synthetic and real-data layers are intentionally separate. Act 1 demonstrates the product response to a fairness violation. The UCI reference baseline passes the documented gender thresholds, does not trigger mitigation, and exposes a decision-boundary robustness failure.
+The synthetic and real-data layers are intentionally separate. Act 1 retains its scripted product story. The UCI view renders the actual six-stage run: gender checks pass, foreign-worker proxy and equalized-odds checks expose findings, mitigation is attempted but remains incomplete, and boundary sensitivity fails.
 
 ## Current implementation
 
@@ -27,15 +27,15 @@ Implemented:
 - standalone Article 15 robustness battery;
 - official UCI German Credit downloader with checksum and shape validation;
 - deterministic XGBoost reference audit;
+- reusable ingestion, baseline-model, disparate-impact, equalized-odds, intersectional-bias and Fairlearn-mitigation modules;
 - machine-readable real-data result artifact;
-- Markdown compliance-document samples.
+- restored and regenerated DOCX compliance deliverables plus Markdown reading copies.
 
 Shown as target architecture, but not implemented end to end:
 
-- general dataset ingestion and upload;
+- general dataset upload beyond the UCI reference contract;
 - conversational setup agent;
 - Great Expectations, dbt and Airflow pipeline;
-- reusable bias-analysis and Fairlearn mitigation modules;
 - PostgreSQL, n8n and Jira integrations;
 - continuous monitoring, retention enforcement and operational oversight controls.
 
@@ -85,13 +85,17 @@ Captured reference results:
 
 | Metric | Result |
 |---|---:|
-| Test accuracy | 74.33% |
-| Disparate impact | 0.9125 — PASS |
-| Statistical parity gap | 0.0729 — PASS |
-| Boundary-sensitivity flip rate | 32.0% — FAIL |
-| OOD flagged rate | 5.67% — INFO |
+| Test accuracy | 73.67% |
+| Gender disparate impact | 0.9977 — PASS |
+| Foreign-worker proxy disparate impact | 0.7944 — FAIL |
+| Post-mitigation foreign-worker DIR | 0.8342 — PASS |
+| Post-mitigation foreign-worker parity gap | 0.1530 — FAIL |
+| Boundary-sensitivity flip rate | 22.22% — FAIL |
+| OOD flagged rate | 3.67% — INFO |
 
-No mitigation is run because both documented diagnostic gender thresholds pass. The official asymmetric cost matrix is not applied.
+Mitigation targets the largest failed disparate-impact check (`foreign_worker`). It improves DIR but does not bring the parity gap below its diagnostic threshold; accuracy decreases from 73.67% to 72.33%. The result is explicitly recorded as incomplete.
+
+The smaller `foreign_worker` test group contains only 13 rows. Its result and the mitigation attempt are exploratory signals that require more data, not compliance conclusions.
 
 Full methodology and provenance: [UCI German Credit Reference Run](docs/reference-run/uci-german-credit.md).
 
@@ -109,6 +113,8 @@ Primary documents:
 - [UCI Reference Run](docs/reference-run/uci-german-credit.md)
 - [Annex IV sample](docs/compliance-samples/annex-iv.md)
 - [Instructions for Use sample](docs/compliance-samples/instructions-for-use.md)
+- [Annex IV DOCX](docs/Annex_IV_Technical_Documentation.docx)
+- [Instructions for Use DOCX](docs/Instructions_for_Use.docx)
 - [Project Charter](docs/project-management/project-charter.md)
 
 `decisions.log` and `module_status.yaml` are sample governance artifacts used by the process concept. `pm-knowledge/` is an internal placeholder and is not part of the public product documentation.
@@ -131,11 +137,16 @@ fair-ai-observatory/
 │   ├── project-management/
 │   └── reference-run/
 ├── observatory/
+│   ├── ingestion/
+│   ├── model/
+│   ├── bias/
 │   ├── robustness/robustness.py
 │   └── setup_agent/
 ├── scripts/
 │   ├── download_uci_german_credit.py
 │   └── run_reference_audit.py
+├── tests/
+│   └── test_pipeline.py
 ├── decisions.log
 ├── module_status.yaml
 └── requirements.txt

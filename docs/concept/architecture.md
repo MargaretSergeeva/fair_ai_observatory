@@ -12,8 +12,11 @@ React concept demo
 Python reference path
 ├── download official UCI archive
 ├── verify archive checksum and raw shape
-├── train deterministic XGBoost baseline
-├── calculate gender fairness aggregates
+├── decompose compound protected-attribute field and encode features
+├── train deterministic XGBoost baseline without protected features
+├── run disparate-impact and equalized-odds checks
+├── run intersectional checks with minimum-n gates
+├── apply Fairlearn mitigation to the largest failed disparate-impact check
 ├── execute robustness battery
 └── write artifacts/uci_german_credit_run.json
 ```
@@ -22,6 +25,12 @@ Implemented Python code:
 
 - `scripts/download_uci_german_credit.py`
 - `scripts/run_reference_audit.py`
+- `observatory/ingestion/ingestion.py`
+- `observatory/model/model.py`
+- `observatory/bias/disparate_impact.py`
+- `observatory/bias/counterfactual_fairness.py`
+- `observatory/bias/intersectional.py`
+- `observatory/bias/mitigation.py`
 - `observatory/robustness/robustness.py`
 
 ## Target architecture shown by the concept
@@ -40,9 +49,6 @@ The following target components are not implemented end to end:
 - conversational setup agent;
 - Great Expectations validation suite;
 - dbt transformations;
-- reusable model-training pipeline;
-- bias and intersectional-analysis modules;
-- Fairlearn mitigation workflow;
 - Airflow orchestration;
 - PostgreSQL persistence;
 - n8n/Jira synchronization;
@@ -54,8 +60,9 @@ The following target components are not implemented end to end:
 |---|---|---|
 | Synthetic fairness and mitigation values | `demo/ObservatoryDemo.jsx` | Scripted concept values |
 | Synthetic process and stakeholder values | `demo/ProcessCommandCenter.jsx` | Scripted concept values |
-| UCI baseline and robustness values | `artifacts/uci_german_credit_run.json` | Reproducible reference result |
-| Annex IV and Instructions for Use | `docs/compliance-samples/` | Sample documents |
+| UCI six-stage fairness and robustness values | `artifacts/uci_german_credit_run.json` | Reproducible reference result |
+| Annex IV and Instructions for Use | `docs/*.docx` | Regenerated sample deliverables from the real reference result |
+| Markdown compliance reading copies | `docs/compliance-samples/` | Synthetic concept samples; not authoritative for the real run |
 | Target pipeline | `demo/ObservatorySchema.jsx` | Architecture concept |
 
 ## Data boundary
