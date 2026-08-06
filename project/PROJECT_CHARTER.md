@@ -40,13 +40,8 @@ A `pm-knowledge/` directory in the repo holds the actual course material — fra
 | Stakeholder | Interest | Influence | Engagement |
 |---|---|---|---|
 | Margarita (Owner/PM) | Full ownership, portfolio credibility, learning outcome | Full | Daily |
-| THRIVE faculty/evaluators | Assessment against program rubric | Assignment-scoped | Per deliverable |
-| Future employers / portfolio reviewers | Judge of technical + PM credibility | Passive (read-only) | Via README, case study, repo |
 | Future open-source contributors | Potential collaborators, code quality | TBD — none yet | Via repo, once public |
 | End users (compliance teams, hypothetical) | Eventual adopters of the setup agent | Shapes setup agent design | Via setup agent feedback loop, once built |
-| Former project partner (if still informally engaged) | Historical context, possible occasional input | Low/undefined — clarify if relevant | TBD — define explicitly if active |
-
-Worth being precise on that last row rather than leaving it ambiguous — either define what role (if any) still exists, or remove the row.
 
 ## 6. Project Phases
 
@@ -70,9 +65,8 @@ decisions.log / module_status.yaml (agent-facing state)
 GitHub repo  →  Airflow → Great Expectations → dbt → XGBoost/Fairlearn pipeline
 ```
 
-## 8. Immediate Next Steps
+## 8. Next Steps
 
-1. Fill in the stakeholder register with real names/specifics (especially the partner row above)
 2. Set up the Jira project: one epic per phase, one issue per module, custom fields for risk tier and metric set
 3. Create `pm-knowledge/` and add the first batch of THRIVE course material with an index
 4. Install all three skill files (`developer`, `pm`, `stakeholders`) into `.claude/skills/`
